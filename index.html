@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f4f6fb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Sin Teclado</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: una sola columna tipo app; micrófono grande abajo, texto arriba, ajustes en hoja deslizable */
+:root{
+  --bg:#f4f6fb; --surface:#ffffff; --ink:#151a2b; --muted:#5d6580; --line:#dde2ee;
+  --accent:#2a45d6; --accent-ink:#ffffff; --accent-soft:#e6eafc;
+  --rec:#d6324a; --ok:#1f8a5b; --warn:#a86a00;
+  --f-display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"Atkinson Hyperlegible",ui-sans-serif,system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0f1220; --surface:#181c2e; --ink:#e8ebf6; --muted:#9aa2bd; --line:#2a3048;
+  --accent:#7d90ff; --accent-ink:#0f1220; --accent-soft:#232a4a;
+  --rec:#ff5c73; --ok:#4fd39a; --warn:#f0b44a; color-scheme:dark;
+}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--f-body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));}
+.app{max-width:720px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;gap:14px;
+  padding-block:calc(env(safe-area-inset-top,0px) + 14px) calc(env(safe-area-inset-bottom,0px) + 18px)}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+h1{font:700 1.45rem/1 var(--f-display);letter-spacing:-.01em;margin:0}
+h1 span{color:var(--accent)}
+.iconbtn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;
+  height:40px;min-width:40px;padding:0 12px;font:500 .9rem var(--f-body);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.iconbtn:focus-visible,button:focus-visible,select:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.status{display:flex;align-items:center;gap:8px;font:500 .78rem var(--f-mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--line)}
+.dot.on{background:var(--ok)} .dot.off{background:var(--warn)}
+
+.modes{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.modes::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;border:1px solid var(--line);background:var(--surface);color:var(--ink);
+  border-radius:999px;padding:7px 14px;font:500 .9rem var(--f-body);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+
+.editor{position:relative;flex:1;display:flex;flex-direction:column;background:var(--surface);
+  border:1px solid var(--line);border-radius:16px;min-height:260px}
+.editor textarea{flex:1;width:100%;min-height:220px;resize:vertical;border:0;background:transparent;color:var(--ink);
+  font:1.08rem/1.6 var(--f-body);padding:16px 16px 8px;border-radius:16px}
+.editor textarea:focus{outline:none}
+.interim{min-height:1.4em;padding:0 16px 10px;color:var(--muted);font-style:italic}
+.edbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 12px;border-top:1px solid var(--line)}
+.edbar .sp{flex:1}
+.meta{font:400 .78rem var(--f-mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.btn{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:8px 12px;
+  font:500 .9rem var(--f-body);cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn:disabled{opacity:.45;cursor:default}
+
+.raw{font-size:.88rem;color:var(--muted)}
+.raw summary{cursor:pointer}
+.raw pre{white-space:pre-wrap;font:400 .85rem/1.5 var(--f-mono);background:var(--surface);border:1px solid var(--line);
+  border-radius:10px;padding:10px;margin:8px 0 0}
+
+.dock{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px}
+.mic{width:84px;height:84px;border-radius:50%;border:0;background:var(--accent);color:var(--accent-ink);cursor:pointer;
+  display:grid;place-items:center;box-shadow:0 6px 18px color-mix(in srgb,var(--accent) 35%,transparent);position:relative;
+  touch-action:manipulation}
+.mic svg{width:34px;height:34px}
+.mic.rec{background:var(--rec);box-shadow:0 0 0 0 color-mix(in srgb,var(--rec) 55%,transparent);animation:pulse 1.4s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 18px transparent}100%{box-shadow:0 0 0 0 transparent}}
+@media (prefers-reduced-motion:reduce){.mic.rec{animation:none}}
+.dock .left{justify-self:start}.dock .right{justify-self:end}
+.side{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:12px;padding:10px 12px;
+  font:500 .88rem var(--f-body);cursor:pointer;line-height:1.2;text-align:center}
+.side.rec{border-color:var(--rec);color:var(--rec)}
+.hint{text-align:center;font-size:.84rem;color:var(--muted);margin:-4px 0 0}
+
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 120px);transform:translateX(-50%);
+  background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:.9rem;opacity:0;pointer-events:none;
+  transition:opacity .2s;max-width:calc(100% - 32px);text-align:center;z-index:50}
+.testres{font-size:.9rem;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg)}
+.testres.ok{border-color:var(--ok);color:var(--ok)} .testres.bad{border-color:var(--rec);color:var(--rec)}
+.toast.show{opacity:1}
+
+/* Hoja de ajustes / historial */
+.sheet{position:fixed;inset:0;background:color-mix(in srgb,#000 40%,transparent);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.panel{background:var(--surface);color:var(--ink);width:100%;max-width:720px;max-height:88vh;overflow:auto;border-radius:18px 18px 0 0;
+  padding:18px max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 20px) max(16px,env(safe-area-inset-left,0px))}
+.panel h2{font:700 1.15rem var(--f-display);margin:0 0 12px;display:flex;justify-content:space-between;align-items:center}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+.field label{font-weight:700;font-size:.92rem}
+.field small{color:var(--muted);font-size:.82rem}
+.field input,.field select,.field textarea{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;
+  padding:10px 12px;font:400 .95rem var(--f-body);width:100%}
+.field textarea{min-height:120px;font-family:var(--f-mono);font-size:.85rem}
+.row{display:flex;gap:8px;align-items:center}
+.field.row{flex-direction:row;justify-content:flex-start}
+.row input[type=checkbox]{width:20px;height:20px}
+.hist{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px}
+.hist li{border:1px solid var(--line);border-radius:12px;padding:10px 12px;cursor:pointer;background:var(--bg)}
+.hist .h-meta{font:400 .74rem var(--f-mono);color:var(--muted);display:flex;gap:10px;margin-bottom:4px}
+.hist .h-txt{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;font-size:.94rem}
+.empty{color:var(--muted);font-size:.92rem}
+a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>Sin<span>·</span>Teclado</h1>
+      <div class="status"><span class="dot" id="aiDot"></span><span id="aiStatus">Revisando…</span></div>
+    </div>
+    <div class="row">
+      <button class="iconbtn" id="btnHist" aria-label="Historial">Historial</button>
+      <button class="iconbtn" id="btnCfg" aria-label="Ajustes">Ajustes</button>
+    </div>
+  </header>
+
+  <nav class="modes" id="modes" aria-label="Formato del texto"></nav>
+
+  <section class="editor">
+    <textarea id="out" placeholder="Toca el micrófono y habla con naturalidad. Puedes corregirte a media frase (“el martes, no, mejor el miércoles”) y decir “nuevo párrafo”. Al soltar, el texto queda limpio y listo para pegar."></textarea>
+    <div class="interim" id="interim" aria-live="polite"></div>
+    <div class="edbar">
+      <span class="meta" id="meta">0 palabras</span>
+      <span class="sp"></span>
+      <button class="btn" id="btnUndo" disabled>Deshacer</button>
+      <button class="btn" id="btnClear">Borrar</button>
+      <button class="btn" id="btnShare">Compartir</button>
+      <button class="btn primary" id="btnCopy">Copiar</button>
+    </div>
+  </section>
+
+  <details class="raw" id="rawBox" hidden>
+    <summary>Ver transcripción original</summary>
+    <pre id="raw"></pre>
+  </details>
+
+  <div class="dock">
+    <button class="side left" id="btnPolish">Pulir<br>de nuevo</button>
+    <button class="mic" id="mic" aria-label="Dictar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 17v4"/></svg>
+    </button>
+    <button class="side right" id="btnEdit">Editar<br>con voz</button>
+  </div>
+  <p class="hint" id="hint">Toca para empezar · toca otra vez para terminar · Ctrl+Espacio en computadora</p>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<div class="sheet" id="cfgSheet" hidden>
+  <div class="panel" role="dialog" aria-label="Ajustes">
+    <h2>Ajustes <button class="btn" data-close>Cerrar</button></h2>
+    <div class="field">
+      <label for="apiKey">Clave de Gemini (gratuita)</label>
+      <input id="apiKey" type="password" autocomplete="off" placeholder="AIza…">
+      <small>Se obtiene en <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. Se guarda solo en este dispositivo. Sin clave, la app usa una limpieza básica sin IA.</small>
+    </div>
+    <div class="field">
+      <label for="model">Modelo</label>
+      <input id="model" type="text" value="auto">
+      <small>Deja “auto” y la app elige sola el modelo Flash más reciente que permita tu clave.</small>
+    </div>
+    <div class="field">
+      <label for="lang">Idioma en que hablas</label>
+      <select id="lang">
+        <option value="es-MX">Español (México)</option>
+        <option value="es-US">Español (EE. UU.)</option>
+        <option value="es-ES">Español (España)</option>
+        <option value="en-US">English (US)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="dict">Diccionario personal</label>
+      <textarea id="dict" placeholder="Una entrada por línea.&#10;Término exacto:   MOCEBPASS&#10;Corrección:       moce pass => MOCEBPASS"></textarea>
+      <small>Escribe términos tal como deben aparecer. Si el dictado suele equivocarse, usa “como lo oye => como debe quedar”.</small>
+    </div>
+    <div class="field">
+      <label for="style">Mi estilo (opcional)</label>
+      <textarea id="style" style="min-height:70px;font-family:var(--f-body)" placeholder="Ej.: Trato de usted en correos institucionales; firmo como Q.F.B. …"></textarea>
+    </div>
+    <div class="field row">
+      <input id="autoCopy" type="checkbox"><label for="autoCopy" style="font-weight:400">Copiar automáticamente al terminar</label>
+    </div>
+    <div class="field">
+      <button class="btn" id="btnTest">Probar conexión con la IA</button>
+      <div class="testres" id="testRes" hidden></div>
+    </div>
+  </div>
+</div>
+
+<div class="sheet" id="histSheet" hidden>
+  <div class="panel" role="dialog" aria-label="Historial">
+    <h2>Historial <span class="row"><button class="btn" id="btnHistClear">Vaciar</button><button class="btn" data-close>Cerrar</button></span></h2>
+    <p class="meta" id="histStats"></p>
+    <ul class="hist" id="histList"></ul>
+  </div>
+</div>
+
+<script>
+(() => {
+"use strict";
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem("st_"+k); return v===null ? d : JSON.parse(v); }catch{ return d; } },
+  set(k, v){ try{ localStorage.setItem("st_"+k, JSON.stringify(v)); }catch{} }
+};
+
+/* ---------- Modos ---------- */
+const MODES = {
+  redactar: {label:"✍ Redactar por mí", ask:true, rule:"La persona te dicta una INSTRUCCIÓN o una idea de lo que quiere escribir. No la transcribas: redacta tú el texto final completo que pide (mensaje, correo, oficio, aviso, etc.), listo para enviar, en el tono adecuado para el destinatario. Usa solo los datos que la persona dio; si falta un dato necesario (fecha, hora, lugar), deja un espacio entre corchetes como [hora] para que lo complete."},
+  auto:     {label:"Automático", rule:"Detecta por el contenido si es mensaje, correo, nota o documento y dale el formato natural correspondiente."},
+  mensaje:  {label:"Mensaje",    rule:"Mensaje breve tipo WhatsApp: tono cercano y claro, sin saludo formal ni firma, párrafos cortos."},
+  correo:   {label:"Correo",     rule:"Correo electrónico profesional: saludo, cuerpo en párrafos, despedida cordial. Si se dicta un asunto, ponlo en la primera línea como 'Asunto: …'."},
+  formal:   {label:"Oficio / formal", rule:"Redacción institucional formal en español de México, impersonal o de usted, propia de documentos oficiales de un hospital público."},
+  notas:    {label:"Notas",      rule:"Notas en viñetas con guion (-), una idea por línea, frases concisas; usa subtítulos si hay temas distintos."},
+  pendientes:{label:"Pendientes", rule:"Lista de tareas con casillas '[ ] ', una acción por línea empezando con verbo en infinitivo; incluye responsable y fecha si se mencionan."},
+  ingles:   {label:"→ Inglés",   rule:"Traduce todo al inglés natural y profesional, conservando el formato que corresponda."}
+};
+let mode = store.get("mode","auto");
+const modesEl = $("modes");
+for (const [k,m] of Object.entries(MODES)){
+  const b = document.createElement("button");
+  b.className="chip"; b.textContent=m.label; b.dataset.mode=k;
+  b.setAttribute("aria-pressed", String(k===mode));
+  b.onclick = () => { mode=k; store.set("mode",k);
+    modesEl.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed", String(c.dataset.mode===k))); };
+  modesEl.appendChild(b);
+}
+
+/* ---------- Ajustes ---------- */
+const cfg = {
+  get key(){ return store.get("key",""); },
+  get model(){ const m=store.get("model","auto"); return (!m || m==="gemini-2.5-flash") ? "auto" : m; },
+  get lang(){ return store.get("lang","es-MX"); },
+  get dict(){ return store.get("dict","MOCEBPASS\nHGR Reynosa\nIMSS-Bienestar\nCOFAT\nSINBA"); },
+  get style(){ return store.get("style",""); },
+  get autoCopy(){ return store.get("autoCopy",false); }
+};
+function loadCfgForm(){
+  $("apiKey").value=cfg.key; $("model").value=cfg.model; $("lang").value=cfg.lang;
+  $("dict").value=cfg.dict; $("style").value=cfg.style; $("autoCopy").checked=cfg.autoCopy;
+}
+["apiKey","model","lang","dict","style"].forEach(id => $(id).addEventListener("input", e => {
+  const map={apiKey:"key"}; store.set(map[id]||id, e.target.value.trim()); refreshStatus();
+  if(id==="lang" && rec) rec.lang = cfg.lang;
+}));
+$("lang").addEventListener("change", e=>{ store.set("lang", e.target.value); if(rec) rec.lang=cfg.lang; });
+$("autoCopy").addEventListener("change", e => store.set("autoCopy", e.target.checked));
+function refreshStatus(){
+  const on = !!cfg.key;
+  $("aiDot").className = "dot " + (on?"on":"off");
+  $("aiStatus").textContent = on ? "IA activa" : "Sin IA · limpieza básica";
+}
+function parseDict(){
+  const terms=[], fixes=[];
+  cfg.dict.split(/\n/).map(s=>s.trim()).filter(Boolean).forEach(l=>{
+    const m = l.split(/\s*=>\s*/);
+    if(m.length===2 && m[0] && m[1]) fixes.push([m[0],m[1]]); else terms.push(l);
+  });
+  return {terms,fixes};
+}
+
+/* ---------- UI helpers ---------- */
+const out=$("out"), interimEl=$("interim"), micBtn=$("mic"), editBtn=$("btnEdit");
+let undoStack=[];
+function setText(t, pushUndo=true){
+  if(pushUndo && out.value.trim()) { undoStack.push(out.value); if(undoStack.length>20) undoStack.shift(); }
+  out.value=t; $("btnUndo").disabled=!undoStack.length; updateMeta();
+}
+const countWords = t => (t.trim().match(/\S+/g)||[]).length;
+let lastWpm=null;
+function updateMeta(){
+  const w=countWords(out.value);
+  $("meta").textContent = w+" palabra"+(w===1?"":"s") + (lastWpm? " · "+lastWpm+" ppm":"");
+}
+out.addEventListener("input", updateMeta);
+let toastT;
+function toast(msg, ms=2200){ const t=$("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),ms); }
+async function copyText(t){
+  try{ await navigator.clipboard.writeText(t); toast("Copiado. Ya puedes pegarlo."); return true; }
+  catch{ out.focus(); out.select(); try{ document.execCommand("copy"); toast("Copiado."); return true; }catch{ toast("Selecciona el texto y cópialo manualmente."); return false; } }
+}
+
+/* ---------- Reconocimiento de voz ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const isAndroid = /Android/i.test(navigator.userAgent);
+let rec=null, listening=false, target=null, sessionFinal="", committed="", lastInter="", startedAt=0;
+
+if(!SR){
+  $("hint").textContent="Este navegador no permite dictado por voz. Usa Chrome o Edge (Android/PC) o Safari (iPhone).";
+  micBtn.disabled=true; editBtn.disabled=true;
+}else{
+  rec = new SR();
+  rec.lang = cfg.lang;
+  rec.interimResults = true;
+  rec.continuous = !isAndroid;   // en Android "continuous" duplica frases; se reinicia en su lugar
+  rec.maxAlternatives = 1;
+  rec.onresult = e => {
+    let fin="", inter="";
+    for(let i=0;i<e.results.length;i++){
+      const r=e.results[i];
+      if(r.isFinal) fin += r[0].transcript + " "; else inter += r[0].transcript;
+    }
+    sessionFinal = fin; lastInter = inter;
+    interimEl.textContent = (committed + sessionFinal + inter).trim();
+  };
+  rec.onerror = e => {
+    if(e.error==="no-speech" || e.error==="aborted") return;
+    const msg = {"not-allowed":"Permite el micrófono para este sitio.","service-not-allowed":"Permite el micrófono para este sitio.","network":"Sin conexión: el dictado del navegador necesita internet.","audio-capture":"No se detecta micrófono."}[e.error] || ("Error de dictado: "+e.error);
+    toast(msg, 3500); stopListening(true);
+  };
+  rec.onend = () => {
+    committed += sessionFinal; sessionFinal="";
+    if(listening){ try{ rec.start(); }catch{} }  // mantener escucha hasta que el usuario detenga
+  };
+}
+
+function startListening(t){
+  if(!rec || listening) return;
+  target=t; committed=""; sessionFinal=""; lastInter=""; interimEl.textContent=""; startedAt=Date.now();
+  rec.lang = cfg.lang;
+  try{ rec.start(); }catch{ return; }
+  listening=true;
+  if(t==="dictate"){ micBtn.classList.add("rec"); micBtn.setAttribute("aria-label","Terminar dictado"); $("hint").textContent="Escuchando… toca para terminar"; }
+  else { editBtn.classList.add("rec"); editBtn.innerHTML="Aplicar<br>cambio"; $("hint").textContent="Di qué cambiar: “hazlo más corto”, “agrega que la reunión es a las 10”…"; }
+  if(navigator.vibrate) navigator.vibrate(15);
+}
+function stopListening(cancel=false){
+  if(!listening) return;
+  listening=false;
+  try{ rec.stop(); }catch{}
+  micBtn.classList.remove("rec"); micBtn.setAttribute("aria-label","Dictar");
+  editBtn.classList.remove("rec"); editBtn.innerHTML="Editar<br>con voz";
+  $("hint").textContent="Toca para empezar · toca otra vez para terminar · Ctrl+Espacio en computadora";
+  // pequeña espera para recoger el último resultado final
+  setTimeout(() => {
+    const said = (committed + sessionFinal + " " + lastInter).replace(/\s+/g," ").trim();
+    lastInter="";
+    interimEl.textContent="";
+    if(cancel || !said) return;
+    const mins = (Date.now()-startedAt)/60000;
+    if(target==="dictate"){ lastWpm = mins>0.05 ? Math.round(countWords(said)/mins) : null; handleDictation(said); }
+    else handleVoiceEdit(said);
+  }, 350);
+}
+micBtn.onclick = () => listening ? (target==="dictate" ? stopListening() : null) : startListening("dictate");
+editBtn.onclick = () => {
+  if(listening){ if(target==="edit") stopListening(); return; }
+  if(!out.value.trim()){ toast("Primero dicta o escribe un texto."); return; }
+  if(!cfg.key){ toast("Editar con voz requiere la clave de Gemini (Ajustes)."); return; }
+  startListening("edit");
+};
+document.addEventListener("keydown", e => {
+  if(e.ctrlKey && e.code==="Space"){ e.preventDefault(); listening ? stopListening() : startListening("dictate"); }
+});
+
+/* ---------- Limpieza básica (sin IA) ---------- */
+function basicClean(t){
+  const {fixes}=parseDict();
+  let s=" "+t+" ";
+  for(const [a,b] of fixes){ s = s.replace(new RegExp("\\b"+a.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\b","gi"), b); }
+  // comandos de puntuación dictados
+  s = s.replace(/\s+(punto y aparte|nuevo párrafo|nuevo parrafo)\s+/gi, ".\n\n ")
+       .replace(/\s+(nueva línea|nueva linea|siguiente línea|siguiente linea)\s+/gi, "\n ")
+       .replace(/\s+punto y coma\s+/gi, "; ")
+       .replace(/\s+dos puntos\s+/gi, ": ")
+       .replace(/\s+(abre|abrir) interrogación\s+/gi, " ¿")
+       .replace(/\s+(cierra|cerrar) interrogación\s+/gi, "? ")
+       .replace(/\s+coma\s+/gi, ", ")
+       .replace(/\s+punto(?!\s+(de|y|com|final)\b)\s+/gi, ". ")
+       .replace(/\s+punto final\s*$/i, ".");
+  // muletillas evidentes
+  s = s.replace(/(^|[\s,])(e+h+|e+m+|m{2,}|a+h+|ehm+)(?=[\s,.]|$)/gi, "$1")
+       .replace(/\b(este,?\s+){2,}/gi, "")
+       .replace(/\b(\w+)(\s+\1\b)+/gi, "$1");          // palabras repetidas
+  s = s.replace(/[ \t]+/g," ").replace(/ +([,.;:?])/g,"$1").replace(/\n /g,"\n").trim();
+  // mayúsculas
+  s = s.replace(/(^|[.?!]\s+|\n\s*|¿)([a-záéíóúñ])/g, (m,p,c)=>p+c.toUpperCase());
+  if(s && !/[.?!:]$/.test(s)) s+=".";
+  return s;
+}
+
+/* ---------- IA (Gemini) ---------- */
+function systemPrompt(){
+  const {terms,fixes}=parseDict();
+  if(MODES[mode].ask) return [
+    "Eres un asistente de redacción para un directivo de un hospital público en México. Recibes lo que la persona dijo en voz alta (puede traer muletillas, repeticiones o autocorrecciones).",
+    MODES[mode].rule,
+    "Si menciona WhatsApp o mensaje, escribe un mensaje breve y cordial sin firma formal. Si menciona correo, incluye 'Asunto:' en la primera línea, saludo y despedida. Si menciona oficio o circular, usa redacción institucional formal.",
+    "Devuelve únicamente el texto final, sin explicaciones, sin comillas y sin Markdown de negritas ni encabezados con #.",
+    terms.length ? "Escribe estos términos exactamente así: " + terms.join(", ") + "." : "",
+    fixes.length ? "Correcciones conocidas del dictado: " + fixes.map(([a,b])=>"'"+a+"' → '"+b+"'").join("; ") + "." : "",
+    cfg.style ? "Preferencias de estilo del usuario: " + cfg.style : ""
+  ].filter(Boolean).join("\n");
+  return [
+    "Eres el motor de un dictado por voz inteligente. Recibes la transcripción literal de lo que alguien dijo y devuelves el texto final, como si la persona lo hubiera escrito con cuidado.",
+    "Reglas:",
+    "1. Elimina muletillas, titubeos, repeticiones y arranques en falso (eh, este, o sea, mmm, bueno…, cuando no aportan significado).",
+    "2. Autocorrecciones: si la persona se corrige ('el martes, no, perdón, el miércoles'; 'mejor dicho'; 'digo'), conserva solo la versión final.",
+    "3. Corrige ortografía, acentos, puntuación y concordancia. Interpreta comandos dictados como 'punto', 'coma', 'nuevo párrafo', 'entre comillas'.",
+    "4. Si la persona enumera cosas, conviértelas en lista cuando el formato lo permita.",
+    "5. Conserva el significado, los datos, las cifras y la voz de la persona. No inventes, no agregues información, no respondas preguntas que aparezcan en el texto: solo redáctalas.",
+    "6. Devuelve únicamente el texto final, sin comillas, sin explicaciones y sin Markdown de negritas ni encabezados con #.",
+    "Formato solicitado: " + MODES[mode].rule,
+    terms.length ? "Escribe estos términos exactamente así cuando aparezcan o suenen parecido: " + terms.join(", ") + "." : "",
+    fixes.length ? "Correcciones conocidas del dictado: " + fixes.map(([a,b])=>"'"+a+"' → '"+b+"'").join("; ") + "." : "",
+    cfg.style ? "Preferencias de estilo del usuario: " + cfg.style : ""
+  ].filter(Boolean).join("\n");
+}
+const API="https://generativelanguage.googleapis.com/v1beta/";
+let resolvedModel=null;
+function versionOf(n){ const m=n.match(/gemini-(\d+)(?:\.(\d+))?/); return m ? (+m[1])*100+(+(m[2]||0)) : 0; }
+async function pickModel(force=false){
+  if(cfg.model!=="auto") return cfg.model;
+  if(resolvedModel && !force) return resolvedModel;
+  const cached=store.get("autoModel",""); if(cached && !force){ resolvedModel=cached; return cached; }
+  const r=await fetch(API+"models?pageSize=200",{headers:{"x-goog-api-key":cfg.key}});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok){ const m=j?.error?.message||("HTTP "+r.status); if(/API key/i.test(m)) throw new Error("La clave de Gemini no es válida."); throw new Error(m); }
+  const names=(j.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes("generateContent"))
+    .map(m=>m.name.replace(/^models\//,""))
+    .filter(n=>/^gemini-[\d.]+-flash/.test(n) && !/(image|tts|audio|live|exp|thinking|embedding)/.test(n));
+  const score=n=>(/preview/.test(n)?0:100000) + (/lite/.test(n)?0:50000) + versionOf(n)*10 + (/-\d{3}$|-\d{2}-\d{4}$/.test(n)?0:1);
+  names.sort((a,b)=>score(b)-score(a));
+  if(!names.length) throw new Error("Tu clave no tiene ningún modelo Flash disponible.");
+  candidates=names.slice(0,5);
+  resolvedModel=names[0]; store.set("autoModel",resolvedModel); return resolvedModel;
+}
+let candidates=[];
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const isBusy=(status,msg)=>status===503 || status===500 || /high demand|overloaded|unavailable|try again later/i.test(msg||"");
+/* Reintenta si el modelo está saturado y, si sigue, prueba los siguientes modelos disponibles */
+async function gemini(system, user){
+  const first = await pickModel();
+  if(cfg.model==="auto" && !candidates.length){ try{ await pickModel(true); }catch{} }
+  const order = cfg.model==="auto" ? [first, ...candidates.filter(m=>m!==first)] : [first];
+  let lastErr;
+  for(const model of order){
+    for(let attempt=0; attempt<2; attempt++){
+      try{
+        const t = await geminiCall(model, system, user);
+        if(model!==resolvedModel && cfg.model==="auto"){ resolvedModel=model; }
+        return t;
+      }catch(e){
+        lastErr=e;
+        if(e.busy){ if(attempt===0){ await sleep(1500); continue; } break; }   // siguiente modelo
+        if(e.gone && cfg.model==="auto"){ store.set("autoModel",""); break; }
+        throw e;
+      }
+    }
+  }
+  if(lastErr && lastErr.busy) throw new Error("Los servidores de Gemini están saturados en este momento. Espera un minuto y vuelve a intentar; tu texto no se perdió.");
+  throw lastErr || new Error("No se pudo conectar con la IA.");
+}
+async function geminiCall(model, system, user){
+  const url = API+"models/"+encodeURIComponent(model)+":generateContent";
+  const body = {
+    systemInstruction:{parts:[{text:system}]},
+    contents:[{role:"user",parts:[{text:user}]}],
+    generationConfig:{temperature:0.2, maxOutputTokens:4096}
+  };
+  if(/2\.5-flash/.test(model)) body.generationConfig.thinkingConfig={thinkingBudget:0};
+  const ctrl=new AbortController(); const to=setTimeout(()=>ctrl.abort(),30000);
+  try{
+    const r = await fetch(url,{method:"POST",signal:ctrl.signal,headers:{"Content-Type":"application/json","x-goog-api-key":cfg.key},body:JSON.stringify(body)});
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok){
+      const m = j?.error?.message || ("HTTP "+r.status);
+      if(r.status===400 && /API key/i.test(m)) throw new Error("La clave de Gemini no es válida.");
+      if(r.status===429) throw new Error("Llegaste al límite gratuito por minuto; espera un momento.");
+      if(isBusy(r.status,m)){ const e=new Error(m); e.busy=true; throw e; }
+      if(r.status===404 || /no longer available|not supported for generateContent/i.test(m)){ if(cfg.model==="auto"){ const e=new Error(m); e.gone=true; throw e; } }
+      if(r.status===404) throw new Error("El modelo '"+model+"' no existe. Escribe “auto” en Modelo.");
+      throw new Error(m);
+    }
+    const txt = (j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||"").join("").trim();
+    if(!txt) throw new Error("La IA no devolvió texto.");
+    return txt.replace(/^```\w*\n?|```$/g,"").trim();
+  } catch(e){ if(e.name==="AbortError") throw new Error("La IA tardó demasiado."); throw e; }
+  finally{ clearTimeout(to); }
+}
+
+let lastRaw="";
+function setBusy(b, msg){
+  micBtn.disabled=b; editBtn.disabled=b; $("btnPolish").disabled=b;
+  interimEl.textContent = b ? msg : "";
+}
+async function handleDictation(raw){
+  lastRaw=raw; $("raw").textContent=raw; $("rawBox").hidden=false;
+  let result;
+  if(cfg.key){
+    setBusy(true, MODES[mode].ask ? "Redactando…" : "Puliendo el texto…");
+    try{ result = await gemini(systemPrompt(), "Transcripción:\n"+raw); }
+    catch(e){ toast(e.message+" Se usó limpieza básica.",4000); result=basicClean(raw); }
+    finally{ setBusy(false); }
+  } else { if(MODES[mode].ask) toast("“Redactar por mí” necesita la clave de Gemini (Ajustes).",3500); result = basicClean(raw); }
+
+  const cur=out.value;
+  // si había texto y el cursor estaba al final o no hay selección, se agrega; si había selección, se reemplaza
+  let next;
+  if(cur.trim() && document.activeElement!==out){ next = cur.replace(/\s*$/,"") + (/\n$/.test(result)?"":"\n\n") + result; }
+  else if(cur.trim()){
+    const a=out.selectionStart, b=out.selectionEnd;
+    next = cur.slice(0,a) + (a>0 && !/\s$/.test(cur.slice(0,a)) ? " " : "") + result + cur.slice(b);
+  } else next=result;
+  setText(next);
+  saveHistory(raw, result);
+  if(cfg.autoCopy) copyText(next);
+}
+async function handleVoiceEdit(instruction){
+  setBusy(true,"Aplicando: “"+instruction+"”");
+  try{
+    const sys = "Eres un editor de textos. Aplica al texto la instrucción hablada del usuario y devuelve solo el texto completo ya modificado, sin explicaciones ni comillas. Respeta el idioma del texto salvo que la instrucción pida traducir."
+      + (parseDict().terms.length ? " Términos que deben escribirse exactamente: "+parseDict().terms.join(", ")+"." : "");
+    const r = await gemini(sys, "Instrucción: "+instruction+"\n\nTexto:\n"+out.value);
+    setText(r); toast("Cambio aplicado.");
+  }catch(e){ toast(e.message,4000); }
+  finally{ setBusy(false); }
+}
+$("btnPolish").onclick = async () => {
+  const src = out.value.trim(); if(!src){ toast("No hay texto que pulir."); return; }
+  if(!cfg.key){ setText(basicClean(src)); return; }
+  setBusy(true,"Puliendo en formato “"+MODES[mode].label+"”…");
+  try{ setText(await gemini(systemPrompt(), "Transcripción:\n"+src)); }catch(e){ toast(e.message,4000); }
+  finally{ setBusy(false); }
+};
+
+/* ---------- Botones del editor ---------- */
+$("btnCopy").onclick = () => out.value.trim() ? copyText(out.value) : toast("No hay texto.");
+$("btnClear").onclick = () => { if(out.value) setText(""); $("rawBox").hidden=true; lastWpm=null; updateMeta(); };
+$("btnUndo").onclick = () => { if(undoStack.length){ out.value=undoStack.pop(); $("btnUndo").disabled=!undoStack.length; updateMeta(); } };
+$("btnShare").onclick = async () => {
+  if(!out.value.trim()) return toast("No hay texto.");
+  if(navigator.share){ try{ await navigator.share({text:out.value}); }catch{} } else copyText(out.value);
+};
+
+/* ---------- Historial (solo en este dispositivo) ---------- */
+function saveHistory(raw, final){
+  const h=store.get("hist",[]);
+  h.unshift({t:Date.now(), m:mode, raw, final, w:countWords(final)});
+  store.set("hist", h.slice(0,100));
+}
+function renderHistory(){
+  const h=store.get("hist",[]), ul=$("histList"); ul.innerHTML="";
+  const today=new Date().toDateString();
+  const wToday=h.filter(x=>new Date(x.t).toDateString()===today).reduce((a,x)=>a+x.w,0);
+  const wAll=h.reduce((a,x)=>a+x.w,0);
+  $("histStats").textContent = `Hoy: ${wToday} palabras · Total guardado: ${wAll} palabras en ${h.length} dictados · ≈ ${Math.round(wAll/40)} min de tecleo ahorrados`;
+  if(!h.length){ ul.innerHTML='<li class="empty" style="cursor:default">Aún no hay dictados.</li>'; return; }
+  for(const x of h){
+    const li=document.createElement("li");
+    const d=new Date(x.t);
+    const meta=document.createElement("div"); meta.className="h-meta";
+    meta.textContent = d.toLocaleDateString("es-MX",{day:"2-digit",month:"short"})+" "+d.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"})+" · "+(MODES[x.m]?.label||x.m)+" · "+x.w+" palabras";
+    const tx=document.createElement("div"); tx.className="h-txt"; tx.textContent=x.final;
+    li.append(meta,tx);
+    li.onclick=()=>{ setText(x.final); $("raw").textContent=x.raw; $("rawBox").hidden=false; closeSheets(); };
+    ul.appendChild(li);
+  }
+}
+$("btnHistClear").onclick = () => {
+  const b=$("btnHistClear");
+  if(b.dataset.confirm){ store.set("hist",[]); renderHistory(); b.textContent="Vaciar"; delete b.dataset.confirm; }
+  else { b.dataset.confirm="1"; b.textContent="¿Seguro? Toca otra vez"; setTimeout(()=>{ b.textContent="Vaciar"; delete b.dataset.confirm; },3000); }
+};
+
+/* ---------- Hojas ---------- */
+function closeSheets(){ $("cfgSheet").hidden=true; $("histSheet").hidden=true; }
+$("btnCfg").onclick=()=>{ loadCfgForm(); $("cfgSheet").hidden=false; };
+$("btnHist").onclick=()=>{ renderHistory(); $("histSheet").hidden=false; };
+document.querySelectorAll("[data-close]").forEach(b=>b.onclick=closeSheets);
+document.querySelectorAll(".sheet").forEach(s=>s.addEventListener("click",e=>{ if(e.target===s) closeSheets(); }));
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeSheets(); });
+$("btnTest").onclick = async () => {
+  const res=$("testRes"); res.hidden=false; res.className="testres";
+  if(!cfg.key){ res.classList.add("bad"); res.textContent="Primero pega tu clave en el campo de arriba."; return; }
+  const b=$("btnTest"); b.disabled=true; b.textContent="Probando…"; res.textContent="Conectando con Gemini…";
+  try{ const r=await gemini("Devuelve el texto corregido.", "eh hola este prueba de conexion"); res.classList.add("ok"); res.textContent="✓ Funciona con el modelo "+(resolvedModel||cfg.model)+". La IA respondió: “"+r.slice(0,80)+"”"; }
+  catch(e){ res.classList.add("bad"); res.textContent="✗ No funcionó: "+(e.message==="Failed to fetch"?"no se pudo conectar. Revisa tu internet o abre la app desde GitHub Pages en lugar del archivo local.":e.message); }
+  finally{ b.disabled=false; b.textContent="Probar conexión con la IA"; }
+};
+
+/* ---------- Borrador ---------- */
+out.value = store.get("draft","");
+setInterval(()=>store.set("draft", out.value), 2000);
+loadCfgForm(); refreshStatus(); updateMeta();
+if(!cfg.key) setTimeout(()=>toast("Agrega tu clave gratuita de Gemini en Ajustes para el pulido con IA.",4500),600);
+})();
+</script>
+</body>
+</html>
